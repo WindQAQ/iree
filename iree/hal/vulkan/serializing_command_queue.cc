@@ -48,8 +48,8 @@ StatusOr<bool> TryToPrepareSemaphores(
   wait_semaphores->clear();
   for (const auto& timeline_semaphore : batch.wait_semaphores) {
     // Query first to progress this timeline semaphore to the furthest.
-    ASSIGN_OR_RETURN(auto signaled_value,
-                     timeline_semaphore.semaphore->Query());
+    IREE_ASSIGN_OR_RETURN(auto signaled_value,
+                          timeline_semaphore.semaphore->Query());
 
     // If it's already signaled to a value greater than we require here,
     // we can just ignore this semaphore now.
@@ -71,7 +71,8 @@ StatusOr<bool> TryToPrepareSemaphores(
 
       // Cancel the wait so others may make progress.
       for (VkSemaphore semaphore : *wait_semaphores) {
-        IREE_RETURN_IF_ERROR(emulated_semaphore->CancelWaitSemaphore(semaphore));
+        IREE_RETURN_IF_ERROR(
+            emulated_semaphore->CancelWaitSemaphore(semaphore));
       }
 
       // This batch cannot be submitted to GPU yet.
@@ -89,9 +90,9 @@ StatusOr<bool> TryToPrepareSemaphores(
     auto* emulated_semaphore =
         static_cast<EmulatedTimelineSemaphore*>(timeline_semaphore.semaphore);
 
-    ASSIGN_OR_RETURN(auto binary_semaphore,
-                     emulated_semaphore->GetSignalSemaphore(
-                         timeline_semaphore.value, fence));
+    IREE_ASSIGN_OR_RETURN(auto binary_semaphore,
+                          emulated_semaphore->GetSignalSemaphore(
+                              timeline_semaphore.value, fence));
     signal_semaphores->push_back(binary_semaphore);
   }
 
@@ -176,7 +177,7 @@ Status SerializingCommandQueue::Submit(
   for (const auto& batch : batches) {
     // Grab a fence for this submission first. This will be used to check the
     // progress of emulated timeline semaphores later.
-    ASSIGN_OR_RETURN(auto fence, fence_pool_->Acquire());
+    IREE_ASSIGN_OR_RETURN(auto fence, fence_pool_->Acquire());
     deferred_submissions_.push_back(
         std::make_unique<FencedSubmission>(batch, std::move(fence)));
   }
@@ -230,9 +231,9 @@ StatusOr<bool> SerializingCommandQueue::ProcessDeferredSubmissions() {
     const SubmissionBatch& batch = submission->batch;
     ref_ptr<TimePointFence>& fence = submission->fence;
 
-    ASSIGN_OR_RETURN(bool ready_to_submit,
-                     TryToPrepareSemaphores(batch, fence, &wait_semaphores,
-                                            &signal_semaphores));
+    IREE_ASSIGN_OR_RETURN(bool ready_to_submit,
+                          TryToPrepareSemaphores(batch, fence, &wait_semaphores,
+                                                 &signal_semaphores));
 
     if (ready_to_submit) {
       submit_infos.emplace_back();
@@ -279,7 +280,7 @@ Status SerializingCommandQueue::WaitIdle(Time deadline_ns) {
 
     // Submit and complete all deferred work.
     while (!deferred_submissions_.empty()) {
-      ASSIGN_OR_RETURN(bool work_submitted, ProcessDeferredSubmissions());
+      IREE_ASSIGN_OR_RETURN(bool work_submitted, ProcessDeferredSubmissions());
       if (work_submitted) {
         VK_RETURN_IF_ERROR(syms()->vkQueueWaitIdle(queue_));
         pending_fences_.clear();
@@ -344,7 +345,7 @@ Status SerializingCommandQueue::AdvanceQueueSubmission() {
   // submissions gotten submitted to the GPU. Other callers might be
   // interested in that information but for this API we just want to advance
   // queue submisison if possible. So we ignore it here.
-  ASSIGN_OR_RETURN(std::ignore, ProcessDeferredSubmissions());
+  IREE_ASSIGN_OR_RETURN(std::ignore, ProcessDeferredSubmissions());
   return OkStatus();
 }
 
