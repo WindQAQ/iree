@@ -225,6 +225,20 @@ class Lower1x1ConvolutionToDotOp : public OpRewritePattern<mhlo::ConvOp> {
       if (filterShape[dim.getZExtValue()] != 1) return failure();
     }
 
+    // Check dilation & strides are ones.
+    if (op.window_strides()) {
+      auto window_strides = op.window_strides().getValue();
+      for (auto stride : window_strides) {
+        if (stride.getZExtValue() != 1) return failure();
+      }
+    }
+    if (op.rhs_dilation()) {
+      auto rhs_dialtion = op.rhs_dilation().getValue();
+      for (auto dilation : rhs_dialtion) {
+        if (dilation.getZExtValue() != 1) return failure();
+      }
+    }
+
     int64_t spatialSize = inputShape[0];
     for (auto dim : op.dimension_numbers().input_spatial_dimensions()) {
       spatialSize *= inputShape[dim.getZExtValue()];
